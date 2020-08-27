@@ -55,7 +55,7 @@ async def request(
 
 async def get_subscription(
     auth: dict, sub_id: str, connection: httpx.AsyncClient
-) -> dict:
+) -> httpx.Response:
     """Get full info about a specific ARB subscription.
 
     Args:
@@ -85,13 +85,3 @@ async def get_subscriptions(auth: dict, sub_ids: typing.Iterable) -> typing.Iter
         tasks = [get_subscription(auth, sub_id, connection) for sub_id in sub_ids]
         responses = await asyncio.gather(*tasks)
     return (response.json()["subscription"] for response in responses)
-
-
-def run() -> None:
-    """Get subscription info."""
-    import json  # noqa:SC100,C0415
-    import sys  # noqa:SC100,C0415
-
-    auth = authentication(sys.argv[1])
-    sub_info = get_subscription(auth, sys.argv[2])
-    print(json.dumps(sub_info, indent=2))
