@@ -7,7 +7,7 @@ authors = ["Jonathan Bowman <git@bowmanjd.com>"]
 [tool.poetry.dependencies]
 python = "^3.8"
 httpx = "^0.14.2"
-typer = "^0.3.2"
+typer = {extras = ["all"], version = "^0.3.2"}
 
 [tool.poetry.dev-dependencies]
 black = "^19.10b0"
@@ -37,7 +37,7 @@ pytest_httpx = "^0.7.0"
 safety = "^1.9.0"
 
 [tool.poetry.scripts]
-authnet = "aioauthorizenet.client:run"
+authnet = "aioauthorizenet.commands:run"
 
 [tool.flakehell]
 exclude = ["README.rst", "README.md"]
@@ -68,6 +68,10 @@ pylint = ["+*"]
 flake8-bandit = ["+*", "-S101", "-S322"]
 flake8-darglint = ["-*"]
 flake8-docstrings = ["-*"]
+
+[tool.flakehell.exceptions."commands.py"]
+flake8-bugbear = ["+*", "-B008"]
+flake8-mutable = ["+*", "-M511"]
 
 [tool.isort]
 multi_line_output = 3
