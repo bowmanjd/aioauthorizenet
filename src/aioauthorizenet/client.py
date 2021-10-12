@@ -1,11 +1,14 @@
 """Simple POC Authorize.net API client."""
 
 import asyncio
+import datetime
 import typing
 
 import httpx
 
 from aioauthorizenet import key
+
+# https://developer.authorize.net/api/reference/index.html
 
 
 def authentication(identifier: str) -> dict:
@@ -22,21 +25,21 @@ def authentication(identifier: str) -> dict:
 
 
 async def request(
-    auth: dict, verb: str, fields: dict, connection: httpx.AsyncClient = None,
+    auth: dict, body: dict, connection: httpx.AsyncClient = None,
 ) -> httpx.Response:
     """Abstraction function for calling Authorize.net API methods.
 
     Args:
         auth: dict with login_id and transaction key
-        verb: the request keyword to use, per Authorize.net instructions
-        fields: the dict of fields and values to upload
+        body: a nested dict with API function, fields, and values to upload
         connection: optional async client
 
     Returns:
         Response
     """
     url = "https://api.authorize.net/xml/v1/request.api"
-    payload = {verb: {**auth, **fields}}
+    api_function, fields = next(iter(body.items()))
+    payload = {api_function: {**auth, **fields}}
 
     if connection:
         close_client = False
@@ -53,6 +56,61 @@ async def request(
     return result
 
 
+async def request_multi(
+    auth: dict, call_list: typing.List[dict], connection: httpx.AsyncClient = None,
+) -> typing.AsyncGenerator:
+    """Make multiple API calls.
+
+    Args:
+        auth: dict with login_id and transaction key
+        call_list: list of dicts of api function, fields ,and values to upload
+        connection: optional async client
+
+    Returns:
+        List of Responses
+    """
+    if connection:
+        close_client = False
+    else:
+        connection = httpx.AsyncClient()
+        close_client = True
+
+    tasks = [request(auth, body, connection) for body in call_list]
+
+    for future in asyncio.as_completed(tasks):
+        yield await future
+
+    if close_client:
+        await connection.aclose()
+
+
+async def get_batches(
+    auth: dict,
+    first_date: datetime.datetime,
+    last_date: datetime.datetime,
+    connection: httpx.AsyncClient = None,
+) -> httpx.Response:
+    """Get list of batches.
+
+    Args:
+        auth: dict with login_id and transaction key
+        first_date: first settlement date
+        last_date: last settlement date
+        connection: optional async client
+
+    Returns:
+        List of settled batches
+    """
+    fields = {
+        "getSettledBatchListRequest": {
+            "firstSettlementDate": first_date.isoformat(),
+            "lastSettlementDate": last_date.isoformat(),
+        }
+    }
+    response = await request(auth, fields, connection)
+    return response.json()["batchList"]
+
+
 async def get_subscription(
     auth: dict, sub_id: str, connection: httpx.AsyncClient
 ) -> httpx.Response:
@@ -66,8 +124,8 @@ async def get_subscription(
     Returns:
         Subscription and profile info as dict
     """
-    fields = {"subscriptionId": sub_id}
-    response = await request(auth, "ARBGetSubscriptionRequest", fields, connection)
+    fields = {"ARBGetSubscriptionRequest": {"subscriptionId": sub_id}}
+    response = await request(auth, fields, connection)
     return response
 
 
